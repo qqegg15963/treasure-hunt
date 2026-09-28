@@ -26,7 +26,8 @@
     button:disabled { background-color: #ccc; }
 
     .treasure-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 5px solid #ff9800; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .distance-tag { font-size: 20px; font-weight: bold; color: #e65100; margin: 8px 0; }
+    .treasure-item.found { border-left-color: #4caf50; background: #f1f8e9; }
+    .distance-tag { font-size: 18px; font-weight: bold; color: #e65100; margin: 6px 0; }
   </style>
 </head>
 <body>
@@ -95,7 +96,7 @@
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwy1kErNe6ABNe1Pv7LwMd9js8yT1D-6FtDcC7KrElsb1srv5ovNCtCgR6Pb6n4K_Tn/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzmP3X7-ZP5Pz9Lt7m0c6gEH5eK2WhiEoLxE2u-te5fYtnbaYmbyyumzQi0zV7UBxsj/exec";
     let currentLat = 0, currentLng = 0;
 
     window.onload = () => { checkSavedTeam(); };
@@ -119,7 +120,7 @@
     }
 
     function clearMySavedTeam() {
-      if (confirm("清空個人記憶？")) {
+      if (confirm("清空個人紀錄？")) {
         localStorage.removeItem("treasure_user_name");
         localStorage.removeItem("treasure_user_team");
         location.reload();
@@ -145,7 +146,6 @@
       } else alert(result.message);
     }
 
-    // 抓取手機 GPS 座標
     function getGPSLocation() {
       const gpsDiv = document.getElementById("gpsStatus");
       if (!navigator.geolocation) return gpsDiv.textContent = "手機不支援 GPS 定位";
@@ -162,7 +162,6 @@
       );
     }
 
-    // 送出藏寶資料
     async function submitHideTreasure() {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先回到第 1 頁完成報名選組！");
@@ -180,7 +179,6 @@
       alert(result.message);
     }
 
-    // 載入寶物並計算距離
     async function loadTreasuresAndCalculate() {
       const container = document.getElementById("treasuresList");
       const savedTeam = localStorage.getItem("treasure_user_team");
@@ -195,27 +193,46 @@
         if (result.status === "success") {
           container.innerHTML = "";
           result.data.forEach(item => {
-            // 自動過濾掉自己組別藏的寶物
-            if (item.teamName === savedTeam) return;
+            if (item.teamName === savedTeam) return; // 濾掉自己組的寶
 
             const distMeters = Math.round(getDistanceMeters(uLat, uLng, item.lat, item.lng));
+            const isFound = item.status.includes("已找到");
+
             const card = document.createElement("div");
-            card.className = "treasure-item";
+            card.className = `treasure-item ${isFound ? 'found' : ''}`;
             card.innerHTML = `
               <div style="font-size:12px; color:#666;">來自【${item.teamName}】藏的寶物</div>
               <div style="font-size:18px; font-weight:bold; color:#1a73e8;">🎁 ${item.treasureName}</div>
               <div class="distance-tag">📡 距離目標：${distMeters} 公尺</div>
               <div style="font-size:14px; color:#333; margin-top:5px;"><strong>💡 地點提示：</strong>${item.hint}</div>
-              <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="display:inline-block; margin-top:8px; font-size:13px; color:#1a73e8; text-decoration:none;">🗺️ 開啟 Google 地圖導航</a>
+              <div style="font-size:13px; margin-top:6px; font-weight:bold; color:${isFound ? '#2e7d32' : '#e65100'};">狀態：${item.status}</div>
+              <div style="margin-top:10px; display:flex; gap:8px;">
+                <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="flex:1; text-align:center; background:#e3f2fd; padding:6px; font-size:12px; color:#1a73e8; text-decoration:none; border-radius:5px;">🗺️ 導航</a>
+                ${!isFound ? `<button onclick="markFound('${item.teamName}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🏆 我們找到了！</button>` : ''}
+              </div>
             `;
             container.appendChild(card);
           });
-          if (container.innerHTML === "") container.innerHTML = "目前沒有其他組別藏的寶物（或你只能找別組的寶物）";
+          if (container.innerHTML === "") container.innerHTML = "目前沒有其他組別藏的寶物";
         }
       });
     }
 
-    // 經緯度算公尺公式
+    async function markFound(targetTeamName) {
+      const savedTeam = localStorage.getItem("treasure_user_team");
+      if (!savedTeam) return alert("請先完成個人報名選組！");
+      if (!confirm(`確定【${savedTeam}】已經找到【${targetTeamName}】藏的寶物了嗎？`)) return;
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "foundTreasure", targetTeamName, finderTeamName: savedTeam })
+      });
+      const result = await res.json();
+      alert(result.message);
+      loadTreasuresAndCalculate(); // 重新整理畫面
+    }
+
     function getDistanceMeters(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
       const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
