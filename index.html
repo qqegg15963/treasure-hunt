@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>50人GPS定位尋寶系統</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; color: #333; }
+    .container { max-width: 500px; margin: 0 auto; }
+    h1 { text-align: center; color: #1a73e8; font-size: 22px; margin-bottom: 15px; }
+    
+    .nav-tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+    .tab-btn { flex: 1; padding: 10px; font-weight: bold; background: #e0e0e0; border: none; border-radius: 8px; cursor: pointer; color: #666; }
+    .tab-btn.active { background: #1a73e8; color: white; }
+
+    .my-team-card { background: linear-gradient(135deg, #4285f4, #34a853); color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; display: none; }
+    .my-team-card h2 { margin: 0 0 5px 0; font-size: 16px; font-weight: normal; }
+    .my-team-card .team-badge { font-size: 22px; font-weight: bold; background: rgba(255,255,255,0.2); display: inline-block; padding: 4px 14px; border-radius: 20px; }
+
+    .card { background: white; padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
+    .form-group { margin-bottom: 12px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; }
+    input, select, textarea { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    
+    button.btn-main { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; background-color: #1a73e8; margin-top: 5px; }
+    button:disabled { background-color: #ccc; }
+
+    .treasure-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 5px solid #ff9800; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .distance-tag { font-size: 20px; font-weight: bold; color: #e65100; margin: 8px 0; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>🏴‍☠️ 50人互藏互找 GPS 尋寶</h1>
+
+    <div id="myTeamCard" class="my-team-card">
+      <h2>👤 <span id="mySavedName"></span>（<span id="mySavedTeam"></span>）</h2>
+      <button onclick="clearMySavedTeam()" style="background: rgba(255,255,255,0.25); border: 1px solid white; padding: 4px 10px; font-size: 12px; border-radius: 12px; color: white; margin-top: 5px;">🔄 清除重報</button>
+    </div>
+
+    <!-- 功能頁籤 -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('joinTab')">📝 1. 報名選組</button>
+      <button class="tab-btn" onclick="switchTab('hideTab')">🚩 2. 我要藏寶</button>
+      <button class="tab-btn" onclick="switchTab('seekTab')">🔍 3. 開始尋寶</button>
+    </div>
+
+    <!-- 分頁 1：報名選組 -->
+    <div id="joinTab" class="tab-content">
+      <div class="card">
+        <div class="form-group">
+          <label>你的姓名：</label>
+          <input type="text" id="userName" placeholder="例如：小明">
+        </div>
+        <div class="form-group">
+          <label>選擇組別：</label>
+          <select id="teamSelect">
+            <option value="第 1 組">第 1 組</option><option value="第 2 組">第 2 組</option>
+            <option value="第 3 組">第 3 組</option><option value="第 4 組">第 4 組</option>
+            <option value="第 5 組">第 5 組</option><option value="第 6 組">第 6 組</option>
+            <option value="第 7 組">第 7 組</option>
+          </select>
+        </div>
+        <button class="btn-main" onclick="submitChoice()">送出報名</button>
+      </div>
+    </div>
+
+    <!-- 分頁 2：我要藏寶 -->
+    <div id="hideTab" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="form-group">
+          <label>寶物名稱：</label>
+          <input type="text" id="treasureName" placeholder="例如：黃金寶箱">
+        </div>
+        <div class="form-group">
+          <label>地點文字提示：</label>
+          <textarea id="treasureHint" rows="2" placeholder="例如：在紅色溜滑梯正後方的草叢裡"></textarea>
+        </div>
+        <div class="form-group">
+          <label>GPS 定位座標：</label>
+          <button type="button" onclick="getGPSLocation()" style="background:#34a853; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">📡 抓取當前 GPS 位置</button>
+          <div id="gpsStatus" style="font-size:12px; color:#666; margin-top:5px;">尚未定位</div>
+        </div>
+        <button class="btn-main" style="background:#e65100;" onclick="submitHideTreasure()">🚩 確定藏寶並送出定位</button>
+      </div>
+    </div>
+
+    <!-- 分頁 3：開始尋寶 -->
+    <div id="seekTab" class="tab-content" style="display:none;">
+      <button onclick="loadTreasuresAndCalculate()" style="width:100%; background:#009688; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; margin-bottom:10px;">🔄 刷新尋寶雷達距離</button>
+      <div id="treasuresList">載入寶物中...</div>
+    </div>
+
+  </div>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwy1kErNe6ABNe1Pv7LwMd9js8yT1D-6FtDcC7KrElsb1srv5ovNCtCgR6Pb6n4K_Tn/exec";
+    let currentLat = 0, currentLng = 0;
+
+    window.onload = () => { checkSavedTeam(); };
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).style.display = 'block';
+      event.target.classList.add('active');
+      if (tabId === 'seekTab') loadTreasuresAndCalculate();
+    }
+
+    function checkSavedTeam() {
+      const savedName = localStorage.getItem("treasure_user_name");
+      const savedTeam = localStorage.getItem("treasure_user_team");
+      if (savedName && savedTeam) {
+        document.getElementById("mySavedName").textContent = savedName;
+        document.getElementById("mySavedTeam").textContent = savedTeam;
+        document.getElementById("myTeamCard").style.display = "block";
+      }
+    }
+
+    function clearMySavedTeam() {
+      if (confirm("清空個人記憶？")) {
+        localStorage.removeItem("treasure_user_name");
+        localStorage.removeItem("treasure_user_team");
+        location.reload();
+      }
+    }
+
+    async function submitChoice() {
+      const name = document.getElementById("userName").value.trim();
+      const teamName = document.getElementById("teamSelect").value;
+      if (!name) return alert("請輸入姓名！");
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "joinTeam", name, teamName })
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        localStorage.setItem("treasure_user_name", name);
+        localStorage.setItem("treasure_user_team", teamName);
+        checkSavedTeam();
+        alert(result.message);
+      } else alert(result.message);
+    }
+
+    // 抓取手機 GPS 座標
+    function getGPSLocation() {
+      const gpsDiv = document.getElementById("gpsStatus");
+      if (!navigator.geolocation) return gpsDiv.textContent = "手機不支援 GPS 定位";
+      gpsDiv.textContent = "定位中，請稍候...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentLat = pos.coords.latitude;
+          currentLng = pos.coords.longitude;
+          gpsDiv.textContent = `✅ 定位成功！(緯度: ${currentLat.toFixed(5)}, 經度: ${currentLng.toFixed(5)})`;
+          gpsDiv.style.color = "green";
+        },
+        () => { gpsDiv.textContent = "❌ 無法抓取位置，請在手機開啟定位權限。"; gpsDiv.style.color = "red"; },
+        { enableHighAccuracy: true }
+      );
+    }
+
+    // 送出藏寶資料
+    async function submitHideTreasure() {
+      const savedTeam = localStorage.getItem("treasure_user_team");
+      if (!savedTeam) return alert("請先回到第 1 頁完成報名選組！");
+      const treasureName = document.getElementById("treasureName").value.trim();
+      const hint = document.getElementById("treasureHint").value.trim();
+      if (!treasureName || !hint) return alert("請填寫寶物名稱與提示！");
+      if (currentLat === 0) return alert("請先點擊按鈕抓取 GPS 位置！");
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "hideTreasure", teamName: savedTeam, treasureName, lat: currentLat, lng: currentLng, hint })
+      });
+      const result = await res.json();
+      alert(result.message);
+    }
+
+    // 載入寶物並計算距離
+    async function loadTreasuresAndCalculate() {
+      const container = document.getElementById("treasuresList");
+      const savedTeam = localStorage.getItem("treasure_user_team");
+      container.innerHTML = "更新座標並讀取寶物中...";
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const uLat = pos.coords.latitude;
+        const uLng = pos.coords.longitude;
+
+        const res = await fetch(`${GAS_URL}?action=getTreasures`);
+        const result = await res.json();
+        if (result.status === "success") {
+          container.innerHTML = "";
+          result.data.forEach(item => {
+            // 自動過濾掉自己組別藏的寶物
+            if (item.teamName === savedTeam) return;
+
+            const distMeters = Math.round(getDistanceMeters(uLat, uLng, item.lat, item.lng));
+            const card = document.createElement("div");
+            card.className = "treasure-item";
+            card.innerHTML = `
+              <div style="font-size:12px; color:#666;">來自【${item.teamName}】藏的寶物</div>
+              <div style="font-size:18px; font-weight:bold; color:#1a73e8;">🎁 ${item.treasureName}</div>
+              <div class="distance-tag">📡 距離目標：${distMeters} 公尺</div>
+              <div style="font-size:14px; color:#333; margin-top:5px;"><strong>💡 地點提示：</strong>${item.hint}</div>
+              <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="display:inline-block; margin-top:8px; font-size:13px; color:#1a73e8; text-decoration:none;">🗺️ 開啟 Google 地圖導航</a>
+            `;
+            container.appendChild(card);
+          });
+          if (container.innerHTML === "") container.innerHTML = "目前沒有其他組別藏的寶物（或你只能找別組的寶物）";
+        }
+      });
+    }
+
+    // 經緯度算公尺公式
+    function getDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+  </script>
+</body>
+</html>
