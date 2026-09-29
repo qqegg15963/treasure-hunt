@@ -122,7 +122,7 @@
             </tr>
           </thead>
           <tbody id="leaderboardBody">
-            <tr><td colspan="3">載入戰績中...</td></tr>
+            <tr><td colspan="3">戰績統計中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -247,7 +247,7 @@
           loadLeaderboard();
         }
       } catch (err) {
-        alert("連線逾時，請再試一次！");
+        alert("連線逾時，請檢查網路後再試一次！");
       } finally {
         btn.disabled = false;
         btn.textContent = "確定註冊並鎖定組別";
@@ -286,9 +286,10 @@
       }
     }
 
-    async function loadLeaderboard() {
+    // ⚡ 自動重試載入榜單（防止戰績卡在統計中）
+    async function loadLeaderboard(retryCount = 0) {
       const tbody = document.getElementById("leaderboardBody");
-      tbody.innerHTML = "<tr><td colspan='3'>戰績統計中...</td></tr>";
+      if (retryCount === 0) tbody.innerHTML = "<tr><td colspan='3'>戰績統計中...</td></tr>";
 
       try {
         const res = await fetch(`${GAS_URL}?action=getLeaderboard`);
@@ -305,9 +306,15 @@
             `;
             tbody.appendChild(tr);
           });
+        } else {
+          throw new Error(result.message);
         }
       } catch (e) {
-        tbody.innerHTML = "<tr><td colspan='3'>無法讀取榜單，請點擊刷新</td></tr>";
+        if (retryCount < 2) {
+          setTimeout(() => loadLeaderboard(retryCount + 1), 1500);
+        } else {
+          tbody.innerHTML = "<tr><td colspan='3'>連線較慢，請點擊【刷新榜單】再試一次</td></tr>";
+        }
       }
     }
 
@@ -331,6 +338,7 @@
       );
     }
 
+    // 🛡️ 防重複點擊發布寶物機制
     async function submitHideTreasure() {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
@@ -343,7 +351,7 @@
       if (currentLat === 0) return alert("請先點擊按鈕抓取 GPS 位置！");
 
       btn.disabled = true;
-      btn.textContent = "資料送出中...";
+      btn.textContent = "發布中，請勿重複點擊...";
 
       try {
         const res = await fetch(GAS_URL, {
@@ -360,7 +368,7 @@
           loadLeaderboard();
         }
       } catch (e) {
-        alert("發布失敗，請重試！");
+        alert("網路連線不穩定，請重新點擊發布！");
       } finally {
         btn.disabled = false;
         btn.textContent = "🚩 確定藏寶並送出定位";
@@ -424,7 +432,7 @@
           if (container.innerHTML === "") container.innerHTML = "目前沒有其他組別藏的寶物";
         }
       } catch (e) {
-        container.innerHTML = "讀取寶物失敗，請確認網路連線或重試。";
+        container.innerHTML = "讀取寶物失敗，請確認網路連線或點擊刷新。";
       }
     }
 
