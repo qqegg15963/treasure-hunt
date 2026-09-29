@@ -13,9 +13,9 @@
     .tab-btn { flex: 1; padding: 10px; font-weight: bold; background: #e0e0e0; border: none; border-radius: 8px; cursor: pointer; color: #666; }
     .tab-btn.active { background: #1a73e8; color: white; }
 
-    .my-team-card { background: linear-gradient(135deg, #4285f4, #34a853); color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; display: none; }
+    .my-team-card { background: linear-gradient(135deg, #1a73e8, #34a853); color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 15px; display: none; }
     .my-team-card h2 { margin: 0 0 5px 0; font-size: 16px; font-weight: normal; }
-    .my-team-card .team-badge { font-size: 22px; font-weight: bold; background: rgba(255,255,255,0.2); display: inline-block; padding: 4px 14px; border-radius: 20px; }
+    .my-team-card .team-badge { font-size: 20px; font-weight: bold; background: rgba(255,255,255,0.25); display: inline-block; padding: 4px 14px; border-radius: 20px; }
 
     .card { background: white; padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 15px; }
     .form-group { margin-bottom: 12px; }
@@ -23,11 +23,19 @@
     input, select, textarea { width: 100%; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
     
     button.btn-main { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; background-color: #1a73e8; margin-top: 5px; }
-    button:disabled { background-color: #ccc; }
+    
+    .mode-switch { text-align: center; margin-top: 10px; font-size: 14px; }
+    .mode-switch a { color: #1a73e8; font-weight: bold; text-decoration: none; cursor: pointer; }
+
+    .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    .leaderboard-table th, .leaderboard-table td { padding: 8px; text-align: center; border-bottom: 1px solid #eee; }
+    .leaderboard-table th { background: #f8f9fa; color: #666; }
 
     .treasure-item { background: white; padding: 15px; border-radius: 10px; margin-bottom: 12px; border-left: 5px solid #ff9800; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .treasure-item.found { border-left-color: #4caf50; background: #f1f8e9; }
     .distance-tag { font-size: 18px; font-weight: bold; color: #e65100; margin: 6px 0; }
+
+    .admin-box { background: #fff3e0; border: 1px dashed #ff9800; padding: 12px; border-radius: 8px; margin-top: 20px; }
   </style>
 </head>
 <body>
@@ -35,36 +43,98 @@
   <div class="container">
     <h1>🏴‍☠️ 尋寶遊戲</h1>
 
+    <!-- 已登入資訊卡 -->
     <div id="myTeamCard" class="my-team-card">
-      <h2>👤 <span id="mySavedName"></span>（<span id="mySavedTeam"></span>）</h2>
-      <button onclick="clearMySavedTeam()" style="background: rgba(255,255,255,0.25); border: 1px solid white; padding: 4px 10px; font-size: 12px; border-radius: 12px; color: white; margin-top: 5px;">🔄 清除重報</button>
+      <h2>👤 <span id="mySavedName"></span></h2>
+      <div class="team-badge">🚩 <span id="mySavedTeam"></span></div>
+      <div><button onclick="logout()" style="background: rgba(255,255,255,0.2); border: 1px solid white; padding: 3px 10px; font-size: 12px; border-radius: 12px; color: white; margin-top: 8px;">🚪 登出帳號</button></div>
     </div>
 
     <!-- 功能頁籤 -->
     <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('joinTab')">📝 1. 報名選組</button>
+      <button class="tab-btn active" onclick="switchTab('joinTab')">📝 1. 報名與榜單</button>
       <button class="tab-btn" onclick="switchTab('hideTab')">🚩 2. 我要藏寶</button>
       <button class="tab-btn" onclick="switchTab('seekTab')">🔍 3. 開始尋寶</button>
     </div>
 
-    <!-- 分頁 1：報名選組 -->
+    <!-- 分頁 1：報名與戰績榜單 -->
     <div id="joinTab" class="tab-content">
-      <div class="card">
-        <div class="form-group">
-          <label>你的姓名：</label>
-          <input type="text" id="userName" placeholder="例如：小明">
+      
+      <!-- 登入/註冊區塊 -->
+      <div id="authSection" class="card">
+        
+        <!-- 註冊表單 -->
+        <div id="registerForm">
+          <h3 style="margin-top:0;">新成員註冊選組</h3>
+          <div class="form-group">
+            <label>你的姓名：</label>
+            <input type="text" id="regName" placeholder="例如：小明">
+          </div>
+          <div class="form-group">
+            <label>選擇組別：</label>
+            <select id="regTeam">
+              <option value="第 1 組">第 1 組</option><option value="第 2 組">第 2 組</option>
+              <option value="第 3 組">第 3 組</option><option value="第 4 組">第 4 組</option>
+              <option value="第 5 組">第 5 組</option><option value="第 6 組">第 6 組</option>
+              <option value="第 7 組">第 7 組</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>設定帳號：</label>
+            <input type="text" id="regAcc" placeholder="輸入方便記憶的帳號">
+          </div>
+          <div class="form-group">
+            <label>設定密碼：</label>
+            <input type="password" id="regPwd" placeholder="輸入密碼">
+          </div>
+          <button class="btn-main" onclick="submitRegister()">確定註冊並鎖定組別</button>
+          <div class="mode-switch">已經有帳號？<a onclick="toggleAuthMode('login')">點此直接登入</a></div>
         </div>
-        <div class="form-group">
-          <label>選擇組別：</label>
-          <select id="teamSelect">
-            <option value="第 1 組">第 1 組</option><option value="第 2 組">第 2 組</option>
-            <option value="第 3 組">第 3 組</option><option value="第 4 組">第 4 組</option>
-            <option value="第 5 組">第 5 組</option><option value="第 6 組">第 6 組</option>
-            <option value="第 7 組">第 7 組</option>
-          </select>
+
+        <!-- 登入表單 -->
+        <div id="loginForm" style="display:none;">
+          <h3 style="margin-top:0;">帳號登入</h3>
+          <div class="form-group">
+            <label>帳號：</label>
+            <input type="text" id="loginAcc" placeholder="請輸入帳號">
+          </div>
+          <div class="form-group">
+            <label>密碼：</label>
+            <input type="password" id="loginPwd" placeholder="請輸入密碼">
+          </div>
+          <button class="btn-main" style="background:#34a853;" onclick="submitLogin()">登入鎖定組別</button>
+          <div class="mode-switch">還沒有帳號？<a onclick="toggleAuthMode('register')">點此前往註冊</a></div>
         </div>
-        <button class="btn-main" onclick="submitChoice()">送出報名</button>
+
       </div>
+
+      <!-- 各組戰績競賽榜單 -->
+      <div class="card">
+        <h3 style="margin-top:0; color:#1a73e8;">🏆 各組寶藏戰績榜</h3>
+        <button onclick="loadLeaderboard()" style="width:100%; background:#f0f2f5; border:1px solid #ccc; padding:6px; border-radius:5px; font-weight:bold; font-size:12px; margin-bottom:8px;">🔄 刷新榜單</button>
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>組別</th>
+              <th>藏寶狀態</th>
+              <th>尋獲寶物數</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody">
+            <tr><td colspan="3">載入戰績中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 管理者後場重置專區 -->
+      <div class="admin-box">
+        <div style="font-weight:bold; font-size:13px; color:#e65100;">🔐 管理者後場專區</div>
+        <div style="margin-top:6px; display:flex; gap:5px;">
+          <button onclick="adminResetData('TREASURES_ONLY')" style="flex:1; background:#ff9800; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🧹 僅清空藏寶紀錄</button>
+          <button onclick="adminResetData('ALL')" style="flex:1; background:#d32f2f; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">💥 全面清空重置</button>
+        </div>
+      </div>
+
     </div>
 
     <!-- 分頁 2：我要藏寶 -->
@@ -77,6 +147,10 @@
         <div class="form-group">
           <label>地點文字提示：</label>
           <textarea id="treasureHint" rows="2" placeholder="例如：在紅色溜滑梯正後方的草叢裡"></textarea>
+        </div>
+        <div class="form-group">
+          <label>🔑 設定解鎖密碼：</label>
+          <input type="text" id="treasurePassword" placeholder="例如：7788（現場實體寶物上貼的密碼）">
         </div>
         <div class="form-group">
           <label>GPS 定位座標：</label>
@@ -96,10 +170,13 @@
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzmP3X7-ZP5Pz9Lt7m0c6gEH5eK2WhiEoLxE2u-te5fYtnbaYmbyyumzQi0zV7UBxsj/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwA4oExWQvrpUPqawabKZj2iIFH-vCEGxTJBKoOaZCWDtHKezs8iTVYFNxKTetQb8vd/exec";
     let currentLat = 0, currentLng = 0;
 
-    window.onload = () => { checkSavedTeam(); };
+    window.onload = () => { 
+      checkSavedTeam(); 
+      loadLeaderboard();
+    };
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
@@ -107,6 +184,17 @@
       document.getElementById(tabId).style.display = 'block';
       event.target.classList.add('active');
       if (tabId === 'seekTab') loadTreasuresAndCalculate();
+      if (tabId === 'joinTab') loadLeaderboard();
+    }
+
+    function toggleAuthMode(mode) {
+      if (mode === 'login') {
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('loginForm').style.display = 'block';
+      } else {
+        document.getElementById('registerForm').style.display = 'block';
+        document.getElementById('loginForm').style.display = 'none';
+      }
     }
 
     function checkSavedTeam() {
@@ -116,34 +204,84 @@
         document.getElementById("mySavedName").textContent = savedName;
         document.getElementById("mySavedTeam").textContent = savedTeam;
         document.getElementById("myTeamCard").style.display = "block";
+        document.getElementById("authSection").style.display = "none";
+      } else {
+        document.getElementById("myTeamCard").style.display = "none";
+        document.getElementById("authSection").style.display = "block";
       }
     }
 
-    function clearMySavedTeam() {
-      if (confirm("清空個人紀錄？")) {
+    function logout() {
+      if (confirm("確定要登出嗎？登出後可再次輸入帳密登入。")) {
         localStorage.removeItem("treasure_user_name");
         localStorage.removeItem("treasure_user_team");
-        location.reload();
+        checkSavedTeam();
       }
     }
 
-    async function submitChoice() {
-      const name = document.getElementById("userName").value.trim();
-      const teamName = document.getElementById("teamSelect").value;
-      if (!name) return alert("請輸入姓名！");
+    async function submitRegister() {
+      const name = document.getElementById("regName").value.trim();
+      const teamName = document.getElementById("regTeam").value;
+      const account = document.getElementById("regAcc").value.trim();
+      const password = document.getElementById("regPwd").value.trim();
+
+      if (!name || !account || !password) return alert("請填寫姓名、帳號與密碼！");
 
       const res = await fetch(GAS_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "joinTeam", name, teamName })
+        body: JSON.stringify({ action: "register", name, teamName, account, password })
       });
       const result = await res.json();
+      alert(result.message);
       if (result.status === "success") {
         localStorage.setItem("treasure_user_name", name);
         localStorage.setItem("treasure_user_team", teamName);
         checkSavedTeam();
-        alert(result.message);
-      } else alert(result.message);
+        loadLeaderboard();
+      }
+    }
+
+    async function submitLogin() {
+      const account = document.getElementById("loginAcc").value.trim();
+      const password = document.getElementById("loginPwd").value.trim();
+
+      if (!account || !password) return alert("請輸入帳號與密碼！");
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "login", account, password })
+      });
+      const result = await res.json();
+      alert(result.message);
+      if (result.status === "success") {
+        localStorage.setItem("treasure_user_name", account);
+        localStorage.setItem("treasure_user_team", result.teamName);
+        checkSavedTeam();
+        loadLeaderboard();
+      }
+    }
+
+    async function loadLeaderboard() {
+      const tbody = document.getElementById("leaderboardBody");
+      tbody.innerHTML = "<tr><td colspan='3'>戰績統計中...</td></tr>";
+
+      const res = await fetch(`${GAS_URL}?action=getLeaderboard`);
+      const result = await res.json();
+
+      if (result.status === "success") {
+        tbody.innerHTML = "";
+        result.data.forEach(item => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td style="font-weight:bold;">${item.teamName}</td>
+            <td>${item.hasHidden ? '✅ 已發布' : '⏳ 藏寶中'}</td>
+            <td style="font-weight:bold; color:#e65100; font-size:16px;">🎁 ${item.foundCount} 個</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
     }
 
     function getGPSLocation() {
@@ -164,19 +302,22 @@
 
     async function submitHideTreasure() {
       const savedTeam = localStorage.getItem("treasure_user_team");
-      if (!savedTeam) return alert("請先回到第 1 頁完成報名選組！");
+      if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
       const treasureName = document.getElementById("treasureName").value.trim();
       const hint = document.getElementById("treasureHint").value.trim();
-      if (!treasureName || !hint) return alert("請填寫寶物名稱與提示！");
+      const password = document.getElementById("treasurePassword").value.trim();
+
+      if (!treasureName || !hint || !password) return alert("請填寫寶物名稱、地點提示與解鎖密碼！");
       if (currentLat === 0) return alert("請先點擊按鈕抓取 GPS 位置！");
 
       const res = await fetch(GAS_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "hideTreasure", teamName: savedTeam, treasureName, lat: currentLat, lng: currentLng, hint })
+        body: JSON.stringify({ action: "hideTreasure", teamName: savedTeam, treasureName, lat: currentLat, lng: currentLng, hint, password })
       });
       const result = await res.json();
       alert(result.message);
+      if (result.status === "success") loadLeaderboard();
     }
 
     async function loadTreasuresAndCalculate() {
@@ -193,7 +334,7 @@
         if (result.status === "success") {
           container.innerHTML = "";
           result.data.forEach(item => {
-            if (item.teamName === savedTeam) return; // 濾掉自己組的寶
+            if (item.teamName === savedTeam) return;
 
             const distMeters = Math.round(getDistanceMeters(uLat, uLng, item.lat, item.lng));
             const isFound = item.status.includes("已找到");
@@ -208,7 +349,7 @@
               <div style="font-size:13px; margin-top:6px; font-weight:bold; color:${isFound ? '#2e7d32' : '#e65100'};">狀態：${item.status}</div>
               <div style="margin-top:10px; display:flex; gap:8px;">
                 <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="flex:1; text-align:center; background:#e3f2fd; padding:6px; font-size:12px; color:#1a73e8; text-decoration:none; border-radius:5px;">🗺️ 導航</a>
-                ${!isFound ? `<button onclick="markFound('${item.teamName}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🏆 我們找到了！</button>` : ''}
+                ${!isFound ? `<button onclick="markFound('${item.teamName}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🔑 輸入密碼解鎖</button>` : ''}
               </div>
             `;
             container.appendChild(card);
@@ -220,17 +361,46 @@
 
     async function markFound(targetTeamName) {
       const savedTeam = localStorage.getItem("treasure_user_team");
-      if (!savedTeam) return alert("請先完成個人報名選組！");
-      if (!confirm(`確定【${savedTeam}】已經找到【${targetTeamName}】藏的寶物了嗎？`)) return;
+      if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
+
+      const inputPassword = prompt(`請輸入【${targetTeamName}】實體寶物上的解鎖密碼：`);
+      if (!inputPassword) return;
 
       const res = await fetch(GAS_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "foundTreasure", targetTeamName, finderTeamName: savedTeam })
+        body: JSON.stringify({ 
+          action: "foundTreasure", 
+          targetTeamName, 
+          finderTeamName: savedTeam, 
+          inputPassword 
+        })
       });
       const result = await res.json();
       alert(result.message);
-      loadTreasuresAndCalculate(); // 重新整理畫面
+      if (result.status === "success") {
+        loadTreasuresAndCalculate();
+        loadLeaderboard();
+      }
+    }
+
+    async function adminResetData(resetType) {
+      const adminPassword = prompt("🔐 請輸入管理者重置密碼：");
+      if (!adminPassword) return;
+
+      const confirmMsg = resetType === 'ALL' ? "⚠️ 確定要全面重置？（會清除所有報名名單與藏寶紀錄）" : "確定要清空所有藏寶紀錄？";
+      if (!confirm(confirmMsg)) return;
+
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "adminReset", adminPassword, resetType })
+      });
+      const result = await res.json();
+      alert(result.message);
+      if (result.status === "success") {
+        loadLeaderboard();
+      }
     }
 
     function getDistanceMeters(lat1, lon1, lat2, lon2) {
