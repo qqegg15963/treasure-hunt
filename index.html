@@ -117,7 +117,7 @@
           <thead>
             <tr>
               <th>組別</th>
-              <th>藏寶狀態</th>
+              <th>已藏寶數量</th>
               <th>尋獲寶物數</th>
             </tr>
           </thead>
@@ -143,7 +143,7 @@
       <div class="card">
         <div class="form-group">
           <label>寶物名稱：</label>
-          <input type="text" id="treasureName" placeholder="例如：黃金寶箱">
+          <input type="text" id="treasureName" placeholder="例如：黃金寶箱 #1">
         </div>
         <div class="form-group">
           <label>地點文字提示：</label>
@@ -171,7 +171,7 @@
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbx_wUBr6R0XgAeKUitjl3yqJzpbwdGFNTLCX7OaVHdaGaLY9_tdh9-0iYbJIQg2Amge/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxlWCzxA3-dlzApU01s_AFLePEQ_BT91cOIc6O8GzdWbxc0eBQZ8w0KE0yyqcg_mu4q/exec";
     let currentLat = 0, currentLng = 0;
 
     window.onload = () => { 
@@ -300,7 +300,7 @@
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td style="font-weight:bold;">${item.teamName}</td>
-              <td>${item.hasHidden ? '✅ 已發布' : '⏳ 藏寶中'}</td>
+              <td style="color:#1a73e8; font-weight:bold;">🚩 ${item.hideCount} 個</td>
               <td style="font-weight:bold; color:#e65100; font-size:16px;">🎁 ${item.foundCount} 個</td>
             `;
             tbody.appendChild(tr);
@@ -353,7 +353,12 @@
         });
         const result = await res.json();
         alert(result.message);
-        if (result.status === "success") loadLeaderboard();
+        if (result.status === "success") {
+          document.getElementById("treasureName").value = "";
+          document.getElementById("treasureHint").value = "";
+          document.getElementById("treasurePassword").value = "";
+          loadLeaderboard();
+        }
       } catch (e) {
         alert("發布失敗，請重試！");
       } finally {
@@ -362,13 +367,11 @@
       }
     }
 
-    // ⚡【核心優化】：快速取得座標（附帶 4 秒防卡死機制），立即繪製雷達卡片
     async function loadTreasuresAndCalculate() {
       const container = document.getElementById("treasuresList");
       const savedTeam = localStorage.getItem("treasure_user_team");
       container.innerHTML = "正在計算雷達距離與載入寶物...";
 
-      // 取得定位（最高等待 4 秒，若超時則使用快取或 0 座標先載入）
       let uLat = currentLat, uLng = currentLng;
 
       try {
@@ -387,7 +390,6 @@
         console.warn("GPS 定位超時，改用快取或預設距離計算");
       }
 
-      // 開始向後端抓取寶物資料
       try {
         const res = await fetch(`${GAS_URL}?action=getTreasures`);
         const result = await res.json();
@@ -414,7 +416,7 @@
               <div style="font-size:13px; margin-top:6px; font-weight:bold; color:${isFound ? '#2e7d32' : '#e65100'};">狀態：${item.status}</div>
               <div style="margin-top:10px; display:flex; gap:8px;">
                 <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="flex:1; text-align:center; background:#e3f2fd; padding:6px; font-size:12px; color:#1a73e8; text-decoration:none; border-radius:5px;">🗺️ 導航</a>
-                ${!isFound ? `<button onclick="markFound('${item.teamName}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🔑 輸入密碼解鎖</button>` : ''}
+                ${!isFound ? `<button onclick="markFound(${item.id}, '${item.teamName}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🔑 輸入密碼解鎖</button>` : ''}
               </div>
             `;
             container.appendChild(card);
@@ -426,7 +428,7 @@
       }
     }
 
-    async function markFound(targetTeamName) {
+    async function markFound(treasureId, targetTeamName) {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
 
@@ -438,7 +440,7 @@
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ 
           action: "foundTreasure", 
-          targetTeamName, 
+          treasureId: treasureId, 
           finderTeamName: savedTeam, 
           inputPassword 
         })
