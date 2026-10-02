@@ -25,6 +25,9 @@
     button.btn-main { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; background-color: #1a73e8; margin-top: 5px; }
     button:disabled { background-color: #a5d6a7 !important; cursor: not-allowed; }
 
+    .team-mode-btn { width: 48%; padding: 8px; border: 1px solid #1a73e8; background: #fff; color: #1a73e8; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .team-mode-btn.active { background: #1a73e8; color: #fff; }
+
     .mode-switch { text-align: center; margin-top: 10px; font-size: 14px; }
     .mode-switch a { color: #1a73e8; font-weight: bold; text-decoration: none; cursor: pointer; }
 
@@ -71,15 +74,28 @@
             <label>你的姓名：</label>
             <input type="text" id="regName" placeholder="例如：小明">
           </div>
+
+          <!-- 選擇創立或加入組別 -->
           <div class="form-group">
-            <label>選擇組別：</label>
-            <select id="regTeam">
-              <option value="第 1 組">第 1 組</option><option value="第 2 組">第 2 組</option>
-              <option value="第 3 組">第 3 組</option><option value="第 4 組">第 4 組</option>
-              <option value="第 5 組">第 5 組</option><option value="第 6 組">第 6 組</option>
-              <option value="第 7 組">第 7 組</option>
-            </select>
+            <label>組別方式：</label>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <button type="button" id="btnModeExisting" class="team-mode-btn active" onclick="toggleTeamSelectMode('existing')">👥 加入現有組別</button>
+              <button type="button" id="btnModeNew" class="team-mode-btn" onclick="toggleTeamSelectMode('new')">➕ 創立新組別</button>
+            </div>
+
+            <!-- 加入現有組別 (下拉選單) -->
+            <div id="existingTeamBox">
+              <select id="regTeamSelect">
+                <option value="">載入現有組別中...</option>
+              </select>
+            </div>
+
+            <!-- 創立新組別 (輸入框) -->
+            <div id="newTeamBox" style="display:none;">
+              <input type="text" id="regTeamInput" placeholder="請輸入新組別名稱 (例如：無敵破壞王隊)">
+            </div>
           </div>
+
           <div class="form-group">
             <label>設定帳號：</label>
             <input type="text" id="regAcc" placeholder="輸入方便記憶的帳號">
@@ -171,8 +187,9 @@
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxn1RV9HRN17pAokOkjMlY9oRpyKCL84srKHLGmv98vOxUIks2917FNyVaMlKYb29tT/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwU2-zDY6WfUXW01KV5xLQMQ4vJ5U-DC3nocE9Bblca6SrDZWd2TE7FdhVPiGCgDvRx/exec";
     let currentLat = 0, currentLng = 0;
+    let teamSelectMode = 'existing'; //預設選「加入現有組別」
 
     window.onload = () => { 
       checkSavedTeam(); 
@@ -195,6 +212,27 @@
       } else {
         document.getElementById('registerForm').style.display = 'block';
         document.getElementById('loginForm').style.display = 'none';
+      }
+    }
+
+    // 切換「加入現有組別」或「創立新組別」
+    function toggleTeamSelectMode(mode) {
+      teamSelectMode = mode;
+      const btnExisting = document.getElementById("btnModeExisting");
+      const btnNew = document.getElementById("btnModeNew");
+      const boxExisting = document.getElementById("existingTeamBox");
+      const boxNew = document.getElementById("newTeamBox");
+
+      if (mode === 'existing') {
+        btnExisting.classList.add("active");
+        btnNew.classList.remove("active");
+        boxExisting.style.display = "block";
+        boxNew.style.display = "none";
+      } else {
+        btnNew.classList.add("active");
+        btnExisting.classList.remove("active");
+        boxNew.style.display = "block";
+        boxExisting.style.display = "none";
       }
     }
 
@@ -222,10 +260,18 @@
 
     async function submitRegister() {
       const name = document.getElementById("regName").value.trim();
-      const teamName = document.getElementById("regTeam").value;
       const account = document.getElementById("regAcc").value.trim();
       const password = document.getElementById("regPwd").value.trim();
       const btn = document.getElementById("btnReg");
+
+      let teamName = "";
+      if (teamSelectMode === 'existing') {
+        teamName = document.getElementById("regTeamSelect").value;
+        if (!teamName) return alert("請先選擇要加入的組別！若尚無組別，請點擊【➕ 創立新組別】。");
+      } else {
+        teamName = document.getElementById("regTeamInput").value.trim();
+        if (!teamName) return alert("請輸入想要創立的新組別名稱！");
+      }
 
       if (!name || !account || !password) return alert("請填寫姓名、帳號與密碼！");
 
@@ -286,9 +332,11 @@
       }
     }
 
-    // ⚡ 自動重試載入榜單（防止戰績卡在統計中）
+    // 載入榜單時同步更新「現有組別下拉選單」
     async function loadLeaderboard(retryCount = 0) {
       const tbody = document.getElementById("leaderboardBody");
+      const teamSelect = document.getElementById("regTeamSelect");
+
       if (retryCount === 0) tbody.innerHTML = "<tr><td colspan='3'>戰績統計中...</td></tr>";
 
       try {
@@ -297,7 +345,18 @@
 
         if (result.status === "success") {
           tbody.innerHTML = "";
+          teamSelect.innerHTML = "";
+
+          if (result.data.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='3'>目前尚無組別報名</td></tr>";
+            teamSelect.innerHTML = "<option value=''>尚無建立的組別，請先創立新組別</option>";
+            return;
+          }
+
+          teamSelect.innerHTML = "<option value=''>-- 請選擇欲加入的組別 --</option>";
+
           result.data.forEach(item => {
+            // 更新榜單表格
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td style="font-weight:bold;">${item.teamName}</td>
@@ -305,6 +364,12 @@
               <td style="font-weight:bold; color:#e65100; font-size:16px;">🎁 ${item.foundCount} 個</td>
             `;
             tbody.appendChild(tr);
+
+            // 動態放入下拉選單
+            const opt = document.createElement("option");
+            opt.value = item.teamName;
+            opt.textContent = item.teamName;
+            teamSelect.appendChild(opt);
           });
         } else {
           throw new Error(result.message);
@@ -338,7 +403,6 @@
       );
     }
 
-    // 🛡️ 防重複點擊發布寶物機制
     async function submitHideTreasure() {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
