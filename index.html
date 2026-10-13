@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>尋寶遊戲（Firebase 即時同步版）</title>
+  <title>尋寶遊戲</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; color: #333; }
     .container { max-width: 500px; margin: 0 auto; }
@@ -45,7 +45,7 @@
 <body>
 
   <div class="container">
-    <h1>🏴‍☠️ 尋寶遊戲（即時同步版）</h1>
+    <h1>🏴‍☠️ 尋寶遊戲</h1>
 
     <!-- 已登入資訊卡 -->
     <div id="myTeamCard" class="my-team-card">
@@ -180,39 +180,20 @@
 
     <!-- 分頁 3：開始尋寶 -->
     <div id="seekTab" class="tab-content" style="display:none;">
-      <div id="treasuresList">雲端雷達監聽中，載入寶物中...</div>
+      <button onclick="loadTreasuresAndCalculate()" style="width:100%; background:#009688; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; margin-bottom:10px;">🔄 刷新尋寶雷達距離</button>
+      <div id="treasuresList">載入寶物中...</div>
     </div>
 
   </div>
 
-  <!-- Firebase 與前端主邏輯 -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
-
-    // 你的真實 Firebase 專案設定
-    const firebaseConfig = {
-      apiKey: "AIzaSyDCx203jXZTOpPFQZaYBhumNxCF5mYgMJM",
-      authDomain: "wherewlof-97a4b.firebaseapp.com",
-      projectId: "wherewlof-97a4b",
-      storageBucket: "wherewlof-97a4b.firebasestorage.app",
-      messagingSenderId: "376077492682",
-      appId: "1:376077492682:web:6e0dc37c4bc71987d6af33",
-      measurementId: "G-DF0MHPHP0F"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
+  <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwA4oExWQvrpUPqawabKZj2iIFH-vCEGxTJBKoOaZCWDtHKezs8iTVYFNxKTetQb8vd/exec";
     let currentLat = 0, currentLng = 0;
-    let teamSelectMode = 'existing';
-    let allTreasures = [];
+    let teamSelectMode = 'existing'; //預設選「加入現有組別」
 
     window.onload = () => { 
       checkSavedTeam(); 
       loadLeaderboard();
-      initFirebaseListener(); // 啟動 Firebase 雲端寶物即時監聽
     };
 
     function switchTab(tabId) {
@@ -220,10 +201,9 @@
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
       document.getElementById(tabId).style.display = 'block';
       event.target.classList.add('active');
-      if (tabId === 'seekTab') renderTreasuresUI();
+      if (tabId === 'seekTab') loadTreasuresAndCalculate();
       if (tabId === 'joinTab') loadLeaderboard();
     }
-    window.switchTab = switchTab;
 
     function toggleAuthMode(mode) {
       if (mode === 'login') {
@@ -234,8 +214,8 @@
         document.getElementById('loginForm').style.display = 'none';
       }
     }
-    window.toggleAuthMode = toggleAuthMode;
 
+    // 切換「加入現有組別」或「創立新組別」
     function toggleTeamSelectMode(mode) {
       teamSelectMode = mode;
       const btnExisting = document.getElementById("btnModeExisting");
@@ -255,7 +235,6 @@
         boxExisting.style.display = "none";
       }
     }
-    window.toggleTeamSelectMode = toggleTeamSelectMode;
 
     function checkSavedTeam() {
       const savedName = localStorage.getItem("treasure_user_name");
@@ -278,7 +257,6 @@
         checkSavedTeam();
       }
     }
-    window.logout = logout;
 
     async function submitRegister() {
       const name = document.getElementById("regName").value.trim();
@@ -321,7 +299,6 @@
         btn.textContent = "確定註冊並鎖定組別";
       }
     }
-    window.submitRegister = submitRegister;
 
     async function submitLogin() {
       const account = document.getElementById("loginAcc").value.trim();
@@ -354,8 +331,8 @@
         btn.textContent = "登入鎖定組別";
       }
     }
-    window.submitLogin = submitLogin;
 
+    // 載入榜單時同步更新「現有組別下拉選單」
     async function loadLeaderboard(retryCount = 0) {
       const tbody = document.getElementById("leaderboardBody");
       const teamSelect = document.getElementById("regTeamSelect");
@@ -379,6 +356,7 @@
           teamSelect.innerHTML = "<option value=''>-- 請選擇欲加入的組別 --</option>";
 
           result.data.forEach(item => {
+            // 更新榜單表格
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td style="font-weight:bold;">${item.teamName}</td>
@@ -387,11 +365,14 @@
             `;
             tbody.appendChild(tr);
 
+            // 動態放入下拉選單
             const opt = document.createElement("option");
             opt.value = item.teamName;
             opt.textContent = item.teamName;
             teamSelect.appendChild(opt);
           });
+        } else {
+          throw new Error(result.message);
         }
       } catch (e) {
         if (retryCount < 2) {
@@ -401,7 +382,6 @@
         }
       }
     }
-    window.loadLeaderboard = loadLeaderboard;
 
     function getGPSLocation() {
       const gpsDiv = document.getElementById("gpsStatus");
@@ -422,9 +402,7 @@
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
       );
     }
-    window.getGPSLocation = getGPSLocation;
 
-    // 🚩 藏寶直接寫入 Firebase (秒級即時同步)
     async function submitHideTreasure() {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
@@ -440,155 +418,131 @@
       btn.textContent = "發布中，請勿重複點擊...";
 
       try {
-        await addDoc(collection(db, "treasures"), {
-          teamName: savedTeam,
-          treasureName: treasureName,
-          lat: currentLat,
-          lng: currentLng,
-          hint: hint,
-          password: password,
-          status: "尋寶中"
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "hideTreasure", teamName: savedTeam, treasureName, lat: currentLat, lng: currentLng, hint, password })
         });
-
-        alert("寶物已成功發布至雲端！全場地圖即時同步！");
-        document.getElementById("treasureName").value = "";
-        document.getElementById("treasureHint").value = "";
-        document.getElementById("treasurePassword").value = "";
+        const result = await res.json();
+        alert(result.message);
+        if (result.status === "success") {
+          document.getElementById("treasureName").value = "";
+          document.getElementById("treasureHint").value = "";
+          document.getElementById("treasurePassword").value = "";
+          loadLeaderboard();
+        }
       } catch (e) {
-        console.error(e);
-        alert("藏寶發布失敗，請檢查網路連線！");
+        alert("網路連線不穩定，請重新點擊發布！");
       } finally {
         btn.disabled = false;
         btn.textContent = "🚩 確定藏寶並送出定位";
       }
     }
-    window.submitHideTreasure = submitHideTreasure;
 
-    // 🔥 啟動 Firebase 雲端即時監聽
-    function initFirebaseListener() {
-      const q = collection(db, "treasures");
-      onSnapshot(q, (snapshot) => {
-        allTreasures = [];
-        snapshot.forEach((docSnap) => {
-          allTreasures.push({
-            id: docSnap.id,
-            ...docSnap.data()
-          });
-        });
-        console.log("🔥 雲端寶物資料更新：", allTreasures);
-        renderTreasuresUI();
-      });
-    }
-
-    // 渲染尋寶雷達介面
-    async function renderTreasuresUI() {
+    async function loadTreasuresAndCalculate() {
       const container = document.getElementById("treasuresList");
       const savedTeam = localStorage.getItem("treasure_user_team");
-      container.innerHTML = "正在計算雷達距離...";
+      container.innerHTML = "正在計算雷達距離與載入寶物...";
 
       let uLat = currentLat, uLng = currentLng;
+
       try {
         const pos = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 3000, maximumAge: 10000 });
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 4000,
+            maximumAge: 15000
+          });
         });
         uLat = pos.coords.latitude;
         uLng = pos.coords.longitude;
         currentLat = uLat;
         currentLng = uLng;
-      } catch (err) {}
-
-      container.innerHTML = "";
-      if (allTreasures.length === 0) {
-        container.innerHTML = "<div class='card' style='text-align:center;'>目前雲端尚無任何寶物</div>";
-        return;
+      } catch (err) {
+        console.warn("GPS 定位超時，改用快取或預設距離計算");
       }
 
-      allTreasures.forEach(item => {
-        if (item.teamName === savedTeam) return;
+      try {
+        const res = await fetch(`${GAS_URL}?action=getTreasures`);
+        const result = await res.json();
+        if (result.status === "success") {
+          container.innerHTML = "";
+          result.data.forEach(item => {
+            if (item.teamName === savedTeam) return;
 
-        let distText = "無法計算";
-        if (uLat !== 0 && uLng !== 0) {
-          const distMeters = Math.round(getDistanceMeters(uLat, uLng, item.lat, item.lng));
-          distText = `${distMeters} 公尺`;
+            let distText = "無法計算";
+            if (uLat !== 0 && uLng !== 0) {
+              const distMeters = Math.round(getDistanceMeters(uLat, uLng, item.lat, item.lng));
+              distText = `${distMeters} 公尺`;
+            }
+
+            const isFound = item.status.includes("已找到");
+
+            const card = document.createElement("div");
+            card.className = `treasure-item ${isFound ? 'found' : ''}`;
+            card.innerHTML = `
+              <div style="font-size:12px; color:#666;">來自【${item.teamName}】藏的寶物</div>
+              <div style="font-size:18px; font-weight:bold; color:#1a73e8;">🎁 ${item.treasureName}</div>
+              <div class="distance-tag">📡 距離目標：${distText}</div>
+              <div style="font-size:14px; color:#333; margin-top:5px;"><strong>💡 地點提示：</strong>${item.hint}</div>
+              <div style="font-size:13px; margin-top:6px; font-weight:bold; color:${isFound ? '#2e7d32' : '#e65100'};">狀態：${item.status}</div>
+              <div style="margin-top:10px; display:flex; gap:8px;">
+                <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="flex:1; text-align:center; background:#e3f2fd; padding:6px; font-size:12px; color:#1a73e8; text-decoration:none; border-radius:5px;">🗺️ 導航</a>
+                ${!isFound ? `<button onclick="markFound(${item.id}, '${item.teamName}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🔑 輸入密碼解鎖</button>` : ''}
+              </div>
+            `;
+            container.appendChild(card);
+          });
+          if (container.innerHTML === "") container.innerHTML = "目前沒有其他組別藏的寶物";
         }
-
-        const isFound = item.status && item.status.includes("已找到");
-
-        const card = document.createElement("div");
-        card.className = `treasure-item ${isFound ? 'found' : ''}`;
-        card.innerHTML = `
-          <div style="font-size:12px; color:#666;">來自【${item.teamName}】藏的寶物</div>
-          <div style="font-size:18px; font-weight:bold; color:#1a73e8;">🎁 ${item.treasureName}</div>
-          <div class="distance-tag">📡 距離目標：${distText}</div>
-          <div style="font-size:14px; color:#333; margin-top:5px;"><strong>💡 地點提示：</strong>${item.hint}</div>
-          <div style="font-size:13px; margin-top:6px; font-weight:bold; color:${isFound ? '#2e7d32' : '#e65100'};">狀態：${item.status || '尋寶中'}</div>
-          <div style="margin-top:10px; display:flex; gap:8px;">
-            <a href="https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}" target="_blank" style="flex:1; text-align:center; background:#e3f2fd; padding:6px; font-size:12px; color:#1a73e8; text-decoration:none; border-radius:5px;">🗺️ 導航</a>
-            ${!isFound ? `<button onclick="markFound('${item.id}', '${item.teamName}', '${item.password}')" style="flex:1; background:#4caf50; color:white; border:none; padding:6px; font-size:12px; border-radius:5px; cursor:pointer;">🔑 輸入密碼解鎖</button>` : ''}
-          </div>
-        `;
-        container.appendChild(card);
-      });
-
-      if (container.innerHTML === "") {
-        container.innerHTML = "<div class='card' style='text-align:center;'>目前沒有其他組別藏的寶物</div>";
+      } catch (e) {
+        container.innerHTML = "讀取寶物失敗，請確認網路連線或點擊刷新。";
       }
     }
 
-    // 🔑 輸入密碼解鎖寶物（直接寫入 Firebase，全場秒同步）
-    async function markFound(treasureId, targetTeamName, correctPassword) {
+    async function markFound(treasureId, targetTeamName) {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
 
       const inputPassword = prompt(`請輸入【${targetTeamName}】實體寶物上的解鎖密碼：`);
       if (!inputPassword) return;
 
-      if (inputPassword.trim() !== String(correctPassword).trim()) {
-        return alert("❌ 寶物密碼錯誤！");
-      }
-
-      try {
-        const treasureRef = doc(db, "treasures", treasureId);
-        await updateDoc(treasureRef, {
-          status: `已找到 (被 ${savedTeam} 尋獲)`
-        });
-        alert("🎉 密碼正確！成功尋獲寶物！全場地圖已同步更新！");
-      } catch (e) {
-        console.error(e);
-        alert("解鎖更新失敗，請檢查網路！");
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ 
+          action: "foundTreasure", 
+          treasureId: treasureId, 
+          finderTeamName: savedTeam, 
+          inputPassword 
+        })
+      });
+      const result = await res.json();
+      alert(result.message);
+      if (result.status === "success") {
+        loadTreasuresAndCalculate();
+        loadLeaderboard();
       }
     }
-    window.markFound = markFound;
 
     async function adminResetData(resetType) {
       const adminPassword = prompt("🔐 請輸入管理者重置密碼：");
       if (!adminPassword) return;
-      if (adminPassword !== "egg") return alert("❌ 管理者密碼錯誤！");
 
-      const confirmMsg = resetType === 'ALL' ? "⚠️ 確定要全面重置？" : "確定要清空所有藏寶紀錄？";
+      const confirmMsg = resetType === 'ALL' ? "⚠️ 確定要全面重置？（會清除所有報名名單與藏寶紀錄）" : "確定要清空所有藏寶紀錄？";
       if (!confirm(confirmMsg)) return;
 
-      try {
-        const querySnapshot = await getDocs(collection(db, "treasures"));
-        const deletePromises = querySnapshot.docs.map(d => deleteDoc(doc(db, "treasures", d.id)));
-        await Promise.all(deletePromises);
-
-        if (resetType === 'ALL') {
-          await fetch(GAS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: "adminReset", adminPassword, resetType })
-          });
-        }
-
-        alert("🧹 重置成功！");
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "adminReset", adminPassword, resetType })
+      });
+      const result = await res.json();
+      alert(result.message);
+      if (result.status === "success") {
         loadLeaderboard();
-      } catch (e) {
-        console.error(e);
-        alert("重置發生錯誤");
       }
     }
-    window.adminResetData = adminResetData;
 
     function getDistanceMeters(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
