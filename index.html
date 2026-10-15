@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>尋寶遊戲（Firebase 即時同步版）</title>
+  <title>尋寶遊戲</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; margin: 0; padding: 15px; color: #333; }
     .container { max-width: 500px; margin: 0 auto; }
@@ -184,8 +184,7 @@
     </div>
 
   </div>
-
-  <!-- Firebase 與前端主邏輯 -->
+    <!-- Firebase 與前端主邏輯 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
     import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
@@ -204,7 +203,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyNIHaMOvPOcYqwTqjOBcI2KS84GZB0pquPb_HiuX9-Liboj9f4FHcOElutz0Nc_X6v/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwqxmPS7Ieettdy23GdO_5g43keFWKoCw6xUDGOC171aSiKJ5RgqLc1lOsZR7Dt6f_b/exec";
     let currentLat = 0, currentLng = 0;
     let teamSelectMode = 'existing';
     let allTreasures = [];
@@ -633,3 +632,4 @@
   </script>
 </body>
 </html>
+
