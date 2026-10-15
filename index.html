@@ -356,49 +356,84 @@
     }
     window.submitLogin = submitLogin;
 
-    async function loadLeaderboard(retryCount = 0) {
+    // 🔥 自動從 Firebase 即時計算戰績與 GAS 團隊清單合併
+    async function loadLeaderboard() {
       const tbody = document.getElementById("leaderboardBody");
       const teamSelect = document.getElementById("regTeamSelect");
-
-      if (retryCount === 0) tbody.innerHTML = "<tr><td colspan='3'>戰績統計中...</td></tr>";
+      tbody.innerHTML = "<tr><td colspan='3'>戰績統計中...</td></tr>";
 
       try {
         const res = await fetch(`${GAS_URL}?action=getLeaderboard`);
         const result = await res.json();
 
-        if (result.status === "success") {
-          tbody.innerHTML = "";
-          teamSelect.innerHTML = "";
+        let teamsList = [];
+        if (result.status === "success" && result.data) {
+          teamsList = result.data.map(item => item.teamName);
+        }
 
-          if (result.data.length === 0) {
-            tbody.innerHTML = "<tr><td colspan='3'>目前尚無組別報名</td></tr>";
-            teamSelect.innerHTML = "<option value=''>尚無建立的組別，請先創立新組別</option>";
-            return;
+        allTreasures.forEach(t => {
+          if (t.teamName && !teamsList.includes(t.teamName)) {
+            teamsList.push(t.teamName);
           }
+          if (t.status && t.status.includes("被 ")) {
+            const finderMatch = t.status.match(/被 (.*?) 尋獲/);
+            if (finderMatch && finderMatch[1] && !teamsList.includes(finderMatch[1])) {
+              teamsList.push(finderMatch[1]);
+            }
+          }
+        });
 
-          teamSelect.innerHTML = "<option value=''>-- 請選擇欲加入的組別 --</option>";
+        tbody.innerHTML = "";
+        teamSelect.innerHTML = "";
 
-          result.data.forEach(item => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td style="font-weight:bold;">${item.teamName}</td>
-              <td style="color:#1a73e8; font-weight:bold;">🚩 ${item.hideCount} 個</td>
-              <td style="font-weight:bold; color:#e65100; font-size:16px;">🎁 ${item.foundCount} 個</td>
-            `;
-            tbody.appendChild(tr);
-
-            const opt = document.createElement("option");
-            opt.value = item.teamName;
-            opt.textContent = item.teamName;
-            teamSelect.appendChild(opt);
-          });
+        if (teamsList.length === 0) {
+          tbody.innerHTML = "<tr><td colspan='3'>目前尚無組別報名</td></tr>";
+          teamSelect.innerHTML = "<option value=''>尚無建立的組別，請先創立新組別</option>";
+          return;
         }
+
+        teamSelect.innerHTML = "<option value=''>-- 請選擇欲加入的組別 --</option>";
+        teamsList.forEach(tName => {
+          const opt = document.createElement("option");
+          opt.value = tName;
+          opt.textContent = tName;
+          teamSelect.appendChild(opt);
+        });
+
+        const stats = {};
+        teamsList.forEach(tName => {
+          stats[tName] = { hideCount: 0, foundCount: 0 };
+        });
+
+        allTreasures.forEach(t => {
+          if (t.teamName) {
+            if (!stats[t.teamName]) stats[t.teamName] = { hideCount: 0, foundCount: 0 };
+            stats[t.teamName].hideCount++;
+          }
+          if (t.status && t.status.includes("已找到")) {
+            const match = t.status.match(/被 (.*?) 尋獲/);
+            if (match && match[1]) {
+              const finder = match[1];
+              if (!stats[finder]) stats[finder] = { hideCount: 0, foundCount: 0 };
+              stats[finder].foundCount++;
+            }
+          }
+        });
+
+        teamsList.forEach(tName => {
+          const s = stats[tName];
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td style="font-weight:bold;">${tName}</td>
+            <td style="color:#1a73e8; font-weight:bold;">🚩 ${s.hideCount} 個</td>
+            <td style="font-weight:bold; color:#e65100; font-size:16px;">🎁 ${s.foundCount} 個</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
       } catch (e) {
-        if (retryCount < 2) {
-          setTimeout(() => loadLeaderboard(retryCount + 1), 1500);
-        } else {
-          tbody.innerHTML = "<tr><td colspan='3'>連線較慢，請點擊【刷新榜單】再試一次</td></tr>";
-        }
+        console.error(e);
+        tbody.innerHTML = "<tr><td colspan='3'>排行榜載入失敗，請點擊【刷新榜單】</td></tr>";
       }
     }
     window.loadLeaderboard = loadLeaderboard;
@@ -424,7 +459,6 @@
     }
     window.getGPSLocation = getGPSLocation;
 
-    // 🚩 藏寶直接寫入 Firebase (秒級即時同步)
     async function submitHideTreasure() {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
@@ -454,6 +488,7 @@
         document.getElementById("treasureName").value = "";
         document.getElementById("treasureHint").value = "";
         document.getElementById("treasurePassword").value = "";
+        loadLeaderboard();
       } catch (e) {
         console.error(e);
         alert("藏寶發布失敗，請檢查網路連線！");
@@ -464,7 +499,6 @@
     }
     window.submitHideTreasure = submitHideTreasure;
 
-    // 🔥 啟動 Firebase 雲端即時監聽
     function initFirebaseListener() {
       const q = collection(db, "treasures");
       onSnapshot(q, (snapshot) => {
@@ -477,10 +511,10 @@
         });
         console.log("🔥 雲端寶物資料更新：", allTreasures);
         renderTreasuresUI();
+        loadLeaderboard();
       });
     }
 
-    // 渲染尋寶雷達介面
     async function renderTreasuresUI() {
       const container = document.getElementById("treasuresList");
       const savedTeam = localStorage.getItem("treasure_user_team");
@@ -535,7 +569,6 @@
       }
     }
 
-    // 🔑 輸入密碼解鎖寶物（直接寫入 Firebase，全場秒同步）
     async function markFound(treasureId, targetTeamName, correctPassword) {
       const savedTeam = localStorage.getItem("treasure_user_team");
       if (!savedTeam) return alert("請先完成註冊或登入鎖定組別！");
@@ -552,7 +585,7 @@
         await updateDoc(treasureRef, {
           status: `已找到 (被 ${savedTeam} 尋獲)`
         });
-        alert("🎉 密碼正確！成功尋獲寶物！全場地圖已同步更新！");
+        alert("🎉 密碼正確！成功尋獲寶物！全場地圖與排行榜已同步更新！");
       } catch (e) {
         console.error(e);
         alert("解鎖更新失敗，請檢查網路！");
